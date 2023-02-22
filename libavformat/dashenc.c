@@ -1141,6 +1141,10 @@ static int write_manifest(AVFormatContext *s, int final)
     int use_rename = proto && !strcmp(proto, "file");
     static unsigned int warned_non_file = 0;
     AVDictionaryEntry *title = av_dict_get(s->metadata, "title", NULL, 0);
+    AVDictionaryEntry *source = av_dict_get(s->metadata, "source", NULL, 0);
+    AVDictionaryEntry *copyright = av_dict_get(s->metadata, "copyright", NULL, 0);
+    AVDictionaryEntry *lang = av_dict_get(s->metadata, "lang", NULL, 0);
+    AVDictionaryEntry *moreInformationURL = av_dict_get(s->metadata, "moreInformationURL", NULL, 0);
     AVDictionary *opts = NULL;
 
     if (!use_rename && !warned_non_file++)
@@ -1201,6 +1205,26 @@ static int write_manifest(AVFormatContext *s, int final)
     if (title) {
         char *escaped = xmlescape(title->value);
         avio_printf(out, "\t\t<Title>%s</Title>\n", escaped);
+        av_free(escaped);
+    }
+    if (source) {
+        char *escaped = xmlescape(source->value);
+        avio_printf(out, "\t\t<Source>%s</Source>\n", escaped);
+        av_free(escaped);
+    }
+    if (copyright) {
+        char *escaped = xmlescape(copyright->value);
+        avio_printf(out, "\t\t<Copyright>%s</Copyright>\n", escaped);
+        av_free(escaped);
+    }
+    if (lang) {
+        char *escaped = xmlescape(lang->value);
+        avio_printf(out, "\t\t<lang>%s</lang>\n", escaped);
+        av_free(escaped);
+    }
+    if (moreInformationURL) {
+        char *escaped = xmlescape(moreInformationURL->value);
+        avio_printf(out, "\t\t<moreInformationURL>%s</moreInformationURL>\n", escaped);
         av_free(escaped);
     }
     avio_printf(out, "\t</ProgramInformation>\n");
