@@ -453,6 +453,7 @@ int ifile_get_packet(InputFile *f, AVPacket **pkt)
                               (f->start_time != AV_NOPTS_VALUE ? f->start_time : 0)
                              );
         float scale = f->rate_emu ? 1.0 : f->readrate;
+        int64_t burst_until = AV_TIME_BASE * f->initial_read_burst;
         for (i = 0; i < f->nb_streams; i++) {
             InputStream *ist = f->streams[i];
             int64_t stream_ts_offset, pts, now;
@@ -460,7 +461,7 @@ int ifile_get_packet(InputFile *f, AVPacket **pkt)
             stream_ts_offset = FFMAX(ist->first_dts != AV_NOPTS_VALUE ? ist->first_dts : 0, file_start);
             pts = av_rescale(ist->dts, 1000000, AV_TIME_BASE);
             now = (av_gettime_relative() - ist->start) * scale + stream_ts_offset;
-            if (pts > now)
+            if (pts - burst_until > now)
                 return AVERROR(EAGAIN);
         }
     }
@@ -1157,6 +1158,16 @@ int ifile_open(const OptionsContext *o, const char *filename)
     if (f->readrate && f->rate_emu) {
         av_log(d, AV_LOG_WARNING, "Both -readrate and -re set. Using -readrate %0.3f.\n", f->readrate);
         f->rate_emu = 0;
+    }
+
+    f->initial_read_burst = o->initial_read_burst ? o->initial_read_burst : 0.0;
+    if (f->initial_read_burst < 0.0) {
+        av_log(NULL, AV_LOG_ERROR, "Option -irb for Input #%d is %0.3f; it must be non-negative.\n", nb_input_files, f->initial_read_burst);
+        exit_program(1);
+    }
+    if ((!f->readrate && !f->rate_emu) && f->initial_read_burst) {
+        av_log(NULL, AV_LOG_WARNING, "Option -irb ignored since neither -readrate nor -re were given\n");
+        f->initial_read_burst = 0;
     }
 
     d->thread_queue_size = o->thread_queue_size;

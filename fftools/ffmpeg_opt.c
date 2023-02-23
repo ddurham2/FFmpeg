@@ -1443,6 +1443,9 @@ const OptionDef options[] = {
     { "readrate",       HAS_ARG | OPT_FLOAT | OPT_OFFSET |
                         OPT_EXPERT | OPT_INPUT,                      { .off = OFFSET(readrate) },
         "read input at specified rate", "speed" },
+    { "irb",            HAS_ARG | OPT_DOUBLE | OPT_OFFSET |
+                        OPT_EXPERT | OPT_INPUT,                      { .off = OFFSET(initial_read_burst) },
+        "The initial amount of input to burst read before imposing any readrate", "seconds" },
     { "target",         HAS_ARG | OPT_PERFILE | OPT_OUTPUT,          { .func_arg = opt_target },
         "specify target file type (\"vcd\", \"svcd\", \"dvd\", \"dv\" or \"dv50\" "
         "with optional prefixes \"pal-\", \"ntsc-\" or \"film-\")", "type" },
