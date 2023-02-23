@@ -116,6 +116,7 @@ typedef struct OptionsContext {
     int loop;
     int rate_emu;
     float readrate;
+    double initial_read_burst;
     int accurate_seek;
     int thread_queue_size;
     int input_sync_ref;
@@ -422,6 +423,7 @@ typedef struct InputFile {
     int nb_streams_warn;  /* number of streams that the user was warned of */
     int rate_emu;
     float readrate;
+    double initial_read_burst;
     int accurate_seek;
 
     AVPacket *pkt;

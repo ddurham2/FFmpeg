@@ -1378,6 +1378,16 @@ static int open_input_file(OptionsContext *o, const char *filename)
         f->rate_emu = 0;
     }
 
+    f->initial_read_burst = o->initial_read_burst ? o->initial_read_burst : 0.0;
+    if (f->initial_read_burst < 0.0) {
+        av_log(NULL, AV_LOG_ERROR, "Option -irb for Input #%d is %0.3f; it must be non-negative.\n", nb_input_files, f->initial_read_burst);
+        exit_program(1);
+    }
+    if ((!f->readrate && !f->rate_emu) && f->initial_read_burst) {
+        av_log(NULL, AV_LOG_WARNING, "Option -irb ignored since neither -readrate nor -re were given\n");
+        f->initial_read_burst = 0;
+    }
+
     f->pkt = av_packet_alloc();
     if (!f->pkt)
         exit_program(1);
@@ -3734,6 +3744,9 @@ const OptionDef options[] = {
     { "readrate",       HAS_ARG | OPT_FLOAT | OPT_OFFSET |
                         OPT_EXPERT | OPT_INPUT,                      { .off = OFFSET(readrate) },
         "read input at specified rate", "speed" },
+    { "irb",            HAS_ARG | OPT_DOUBLE | OPT_OFFSET |
+                        OPT_EXPERT | OPT_INPUT,                      { .off = OFFSET(initial_read_burst) },
+        "The initial amount of input to burst read before imposing any readrate", "seconds" },
     { "target",         HAS_ARG | OPT_PERFILE | OPT_OUTPUT,          { .func_arg = opt_target },
         "specify target file type (\"vcd\", \"svcd\", \"dvd\", \"dv\" or \"dv50\" "
         "with optional prefixes \"pal-\", \"ntsc-\" or \"film-\")", "type" },
