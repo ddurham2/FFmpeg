@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include "os_support.h"
 #include "url.h"
+#include "network.h"
 
 /* Some systems may not have S_ISFIFO */
 #ifndef S_ISFIFO
@@ -113,6 +114,11 @@ static int file_read(URLContext *h, unsigned char *buf, int size)
     FileContext *c = h->priv_data;
     int ret;
     size = FFMIN(size, c->blocksize);
+    if (h->rw_timeout > 0) { /* wait for something, anything to read */
+        ret = ff_network_wait_fd_timeout(c->fd, 0, h->rw_timeout, NULL);
+        if (ret)
+            return ret;
+    }
     ret = read(c->fd, buf, size);
     if (ret == 0 && c->follow)
         return AVERROR(EAGAIN);
@@ -125,6 +131,11 @@ static int file_write(URLContext *h, const unsigned char *buf, int size)
 {
     FileContext *c = h->priv_data;
     int ret;
+    if (h->rw_timeout > 0) { /* wait for something, anything to read */
+        ret = ff_network_wait_fd_timeout(c->fd, 1, h->rw_timeout, NULL);
+        if (ret)
+            return ret;
+    }
     size = FFMIN(size, c->blocksize);
     ret = write(c->fd, buf, size);
     return (ret == -1) ? AVERROR(errno) : ret;
@@ -229,6 +240,9 @@ static int file_open(URLContext *h, const char *filename, int flags)
     fd = avpriv_open(filename, access, 0666);
     if (fd == -1)
         return AVERROR(errno);
+    if (h->rw_timeout > 0) { /* if we'll be doing reads w/ timeout, mark non-blocking */
+        fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+    }
     c->fd = fd;
 
     h->is_streamed = !fstat(fd, &st) && S_ISFIFO(st.st_mode);
@@ -393,6 +407,9 @@ static int pipe_open(URLContext *h, const char *filename, int flags)
 #if HAVE_SETMODE
     setmode(fd, O_BINARY);
 #endif
+    if (h->rw_timeout > 0) { /* if we'll be doing reads w/ timeout, mark non-blocking */
+        fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+    }
     c->fd = fd;
     h->is_streamed = 1;
     return 0;
