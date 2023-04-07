@@ -454,15 +454,18 @@ int ifile_get_packet(InputFile *f, AVPacket **pkt)
                              );
         float scale = f->rate_emu ? 1.0 : f->readrate;
         int64_t burst_until = AV_TIME_BASE * f->initial_read_burst;
+        int64_t now = av_gettime_relative();
         for (i = 0; i < f->nb_streams; i++) {
             InputStream *ist = f->streams[i];
-            int64_t stream_ts_offset, pts, now;
+            int64_t stream_ts_offset, pts, now_adj;
             if (!ist->nb_packets || (ist->decoding_needed && !ist->got_output)) continue;
             stream_ts_offset = FFMAX(ist->first_dts != AV_NOPTS_VALUE ? ist->first_dts : 0, file_start);
             pts = av_rescale(ist->dts, 1000000, AV_TIME_BASE);
-            now = (av_gettime_relative() - ist->start) * scale + stream_ts_offset;
-            if (pts - burst_until > now)
+            now_adj = (now - ist->start) * scale + stream_ts_offset;
+            if (pts - burst_until > now_adj) {
+                f->next_read_time = now + (pts - now_adj);
                 return AVERROR(EAGAIN);
+            }
         }
     }
 

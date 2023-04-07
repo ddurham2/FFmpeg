@@ -453,6 +453,7 @@ typedef struct InputFile {
     AVFormatContext *ctx;
     int eof_reached;      /* true if eof reached */
     int eagain;           /* true if last read attempt returned EAGAIN */
+    int64_t next_read_time; /* if eagain, this is the av_gettime_relative() value after which we should read again */
     int64_t input_ts_offset;
     int input_sync_ref;
     /**
