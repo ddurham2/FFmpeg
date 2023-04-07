@@ -406,6 +406,7 @@ typedef struct InputFile {
     AVFormatContext *ctx;
     int eof_reached;      /* true if eof reached */
     int eagain;           /* true if last read attempt returned EAGAIN */
+    int64_t next_read_time; /* if eagain, this is the av_gettime_relative() value after which we should read again */
     int ist_index;        /* index of first stream in input_streams */
     int loop;             /* set number of times input stream should be looped */
     int64_t duration;     /* actual duration of the longest stream in a file

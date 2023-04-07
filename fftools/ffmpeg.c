@@ -3769,15 +3769,18 @@ static int get_input_packet(InputFile *f, AVPacket **pkt)
                              );
         float scale = f->rate_emu ? 1.0 : f->readrate;
         int64_t burst_until = AV_TIME_BASE * f->initial_read_burst;
+        int64_t now = av_gettime_relative();
         for (i = 0; i < f->nb_streams; i++) {
-            InputStream *ist = input_streams[f->ist_index + i];
-            int64_t stream_ts_offset, pts, now;
+			InputStream *ist = input_streams[f->ist_index + i];
+            int64_t stream_ts_offset, pts, now_adj;
             if (!ist->nb_packets || (ist->decoding_needed && !ist->got_output)) continue;
             stream_ts_offset = FFMAX(ist->first_dts != AV_NOPTS_VALUE ? ist->first_dts : 0, file_start);
             pts = av_rescale(ist->dts, 1000000, AV_TIME_BASE);
-            now = (av_gettime_relative() - ist->start) * scale + stream_ts_offset;
-            if (pts - burst_until > now)
+            now_adj = (now - ist->start) * scale + stream_ts_offset;
+            if (pts - burst_until > now_adj) {
+                f->next_read_time = now + (pts - now_adj);
                 return AVERROR(EAGAIN);
+            }
         }
     }
 
@@ -3798,13 +3801,25 @@ static int got_eagain(void)
     return 0;
 }
 
-static void reset_eagain(void)
+/* returns the earliest delay in microseconds after which all inputs should be read again */
+static int64_t reset_eagain(void)
 {
+    int64_t now = av_gettime_relative();
+    int64_t d, min_next_read_time = now + 1000000; /* start 1 sec from now */
     int i;
-    for (i = 0; i < nb_input_files; i++)
-        input_files[i]->eagain = 0;
+    for (i = 0; i < nb_input_files; i++) {
+        InputFile* f = input_files[i];
+        if (f->eagain) {
+            f->eagain = 0;
+            min_next_read_time = FFMIN(min_next_read_time, f->next_read_time);
+            f->next_read_time = 0;
+        }
+    }
     for (i = 0; i < nb_output_streams; i++)
         output_streams[i]->unavailable = 0;
+
+    d = min_next_read_time - now;
+    return d > 0 ? d : 0;
 }
 
 // set duration to max(tmp, duration) in a proper time base and return duration's time_base
@@ -4244,8 +4259,9 @@ static int transcode_step(void)
     ost = choose_output();
     if (!ost) {
         if (got_eagain()) {
-            reset_eagain();
-            av_usleep(10000);
+            int64_t delay = reset_eagain();
+printf("delay: %ld\n", delay);
+            av_usleep(delay);
             return 0;
         }
         av_log(NULL, AV_LOG_VERBOSE, "No more inputs to read from, finishing.\n");
