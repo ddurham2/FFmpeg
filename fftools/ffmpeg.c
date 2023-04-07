@@ -3633,13 +3633,25 @@ static int got_eagain(void)
     return 0;
 }
 
-static void reset_eagain(void)
+/* returns the earliest delay in microseconds after which all inputs should be read again */
+static int64_t reset_eagain(void)
 {
+    int64_t now = av_gettime_relative();
+    int64_t d, min_next_read_time = now + 1000000; /* start 1 sec from now */
     int i;
-    for (i = 0; i < nb_input_files; i++)
-        input_files[i]->eagain = 0;
+    for (i = 0; i < nb_input_files; i++) {
+        InputFile* f = input_files[i];
+        if (f->eagain) {
+            f->eagain = 0;
+            min_next_read_time = FFMIN(min_next_read_time, f->next_read_time);
+            f->next_read_time = 0;
+        }
+    }
     for (OutputStream *ost = ost_iter(NULL); ost; ost = ost_iter(ost))
         ost->unavailable = 0;
+
+    d = min_next_read_time - now;
+    return d > 0 ? d : 0;
 }
 
 static void decode_flush(InputFile *ifile)
@@ -3929,8 +3941,8 @@ static int transcode_step(void)
     ost = choose_output();
     if (!ost) {
         if (got_eagain()) {
-            reset_eagain();
-            av_usleep(10000);
+            int64_t delay = reset_eagain();
+            av_usleep(delay);
             return 0;
         }
         av_log(NULL, AV_LOG_VERBOSE, "No more inputs to read from, finishing.\n");
