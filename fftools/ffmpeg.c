@@ -4260,7 +4260,6 @@ static int transcode_step(void)
     if (!ost) {
         if (got_eagain()) {
             int64_t delay = reset_eagain();
-printf("delay: %ld\n", delay);
             av_usleep(delay);
             return 0;
         }
