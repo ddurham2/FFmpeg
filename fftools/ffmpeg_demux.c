@@ -100,7 +100,7 @@ typedef struct DemuxStream {
     int64_t                  resume_wc;
     // timestamp of first packet sent after the latest stall - used for readrate
     int64_t                  resume_pts;
-    // measure of how far behind packet reading is against spceified readrate
+    // measure of how far behind packet reading is against specified readrate
     int64_t                  lag;
 } DemuxStream;
 
@@ -513,6 +513,10 @@ static void readrate_sleep(Demuxer *d)
         int64_t stream_ts_offset, pts, now, wc_elapsed, elapsed, lag, max_pts, limit_pts;
 
         if (ds->discard) continue;
+
+        if (ds->lag == 0 && initial_burst > 0) {
+            ds->lag = initial_burst;
+        }
 
         stream_ts_offset = FFMAX(ds->first_dts != AV_NOPTS_VALUE ? ds->first_dts : 0, file_start);
         pts = av_rescale(ds->dts, 1000000, AV_TIME_BASE);
